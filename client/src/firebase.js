@@ -2,11 +2,11 @@ import { initializeApp } from "firebase/app";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: "mern-estates-07-df43a.firebaseapp.com",
-  projectId: "mern-estates-07-df43a",
-  storageBucket: "mern-estates-07-df43a.appspot.com",
-  messagingSenderId: "788887008195",
-  appId: "1:788887008195:web:62d839cd995784c223c376"
+  authDomain: "mern-estates-7.firebaseapp.com",
+  projectId: "mern-estates-7",
+  storageBucket: "mern-estates-7.appspot.com",
+  messagingSenderId: "642095422682",
+  appId: "1:642095422682:web:0e91f8444fb7bf034819e3"
 };
 
 export const app = initializeApp(firebaseConfig);
