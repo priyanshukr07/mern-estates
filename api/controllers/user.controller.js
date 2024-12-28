@@ -1,37 +1,60 @@
-import bcryptjs from 'bcryptjs';
-import User from '../models/user.model.js';
-import { errorHandler } from '../utils/error.js';
-import Listing from '../models/listing.model.js';
-
-export const test = (req, res) => {
-  res.json({
-    message: 'Api route is working!',
-  });
-};
+import bcryptjs from "bcryptjs";
+import User from "../models/user.model.js";
+import { errorHandler } from "../utils/error.js";
+import Listing from "../models/listing.model.js";
 
 export const updateUser = async (req, res, next) => {
-  if (req.user.id !== req.params.id)
-    return next(errorHandler(401, 'You can only update your own account!'));
+  if (req.user.id !== req.params.id) {
+    return next(errorHandler(401, "You can only update your own account!"));
+  }
+
   try {
-    if (req.body.password) {
-      req.body.password = bcryptjs.hashSync(req.body.password, 10);
+    const { currentPassword, newPassword, username, avatar } = req.body;
+
+    if (req.body.email) {
+      return next(errorHandler(400, "Email address cannot be updated."));
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return next(errorHandler(404, "User not found."));
+    }
+
+    let updatedPassword = user.password;
+    if (newPassword) {
+      if (!currentPassword) {
+        return next(
+          errorHandler(
+            400,
+            "Current password is required to update the password."
+          )
+        );
+      }
+
+      const isCurrentPasswordValid = bcryptjs.compareSync(
+        currentPassword,
+        user.password
+      );
+      if (!isCurrentPasswordValid) {
+        return next(errorHandler(401, "Current password is incorrect."));
+      }
+
+      updatedPassword = bcryptjs.hashSync(newPassword, 10);
     }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
       {
         $set: {
-          username: req.body.username,
-          email: req.body.email,
-          password: req.body.password,
-          avatar: req.body.avatar,
+          username,
+          avatar,
+          password: updatedPassword,
         },
       },
       { new: true }
     );
 
     const { password, ...rest } = updatedUser._doc;
-
     res.status(200).json(rest);
   } catch (error) {
     next(error);
@@ -40,11 +63,11 @@ export const updateUser = async (req, res, next) => {
 
 export const deleteUser = async (req, res, next) => {
   if (req.user.id !== req.params.id)
-    return next(errorHandler(401, 'You can only delete your own account!'));
+    return next(errorHandler(401, "You can only delete your own account!"));
   try {
     await User.findByIdAndDelete(req.params.id);
-    res.clearCookie('access_token');
-    res.status(200).json('User has been deleted!');
+    res.clearCookie("access_token");
+    res.status(200).json("User has been deleted!");
   } catch (error) {
     next(error);
   }
@@ -59,19 +82,18 @@ export const getUserListings = async (req, res, next) => {
       next(error);
     }
   } else {
-    return next(errorHandler(401, 'You can only view your own listings!'));
+    return next(errorHandler(401, "You can only view your own listings!"));
   }
 };
 
 export const getUser = async (req, res, next) => {
   try {
-    
     const user = await User.findById(req.params.id);
-  
-    if (!user) return next(errorHandler(404, 'User not found!'));
-  
+
+    if (!user) return next(errorHandler(404, "User not found!"));
+
     const { password: pass, ...rest } = user._doc;
-  
+
     res.status(200).json(rest);
   } catch (error) {
     next(error);

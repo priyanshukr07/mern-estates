@@ -31,11 +31,12 @@ export default function Profile() {
   const [showListingsSuccess, setShowListingsSuccess] = useState(false);
   const [showListingsError, setShowListingsError] = useState(false);
   const [userListings, setUserListings] = useState([]);
-  const [showMessage, setShowMessage] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [deleteListing, setDeleteListing] = useState(false);
   const [listingId, setListingId] = useState(null);
-  const [deleteUser, setDeleteUser] = useState(false);
+  const [listingName, setListingName] = useState(null);
+  const [showUpdateMessage, setShowUpdateMessage] = useState(false);
+  const [showListingMessage, setShowListingMessage] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -53,42 +54,42 @@ export default function Profile() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setShowMessage(false);
+      // showUpdateMessage(false);
+      showListingMessage(false);
     }, 3000);
 
     return () => clearTimeout(timer);
   }, [userListings]);
 
-  const handleOpenDeleteListingConfirm = (id) => {
+  const handleOpenDeleteListingConfirm = (id, name) => {
     setListingId(id);
+    setListingName(name);
     setDeleteListing(true);
     setShowConfirmDelete(true);
   };
 
   const handleOpenDeleteUserConfirm = () => {
-    setDeleteUser(true);
     setShowConfirmDelete(true);
-  }; 
+  };
 
   const handleConfirmDeleteListing = () => {
     handleListingDelete(listingId);
     setDeleteListing(false);
     setShowConfirmDelete(false);
     setListingId(null);
+    setListingName(null);
   };
 
   const handleConfirmDeleteUser = () => {
     handleUserDelete();
-    setDeleteUser(false);
     setShowConfirmDelete(false);
   };
 
-
   const handleCancelDelete = () => {
     setDeleteListing(false);
-    setDeleteUser(false);
     setShowConfirmDelete(false);
     setListingId(null);
+    setListingName(null);
   };
 
   const handleFileUpload = (file) => {
@@ -154,6 +155,7 @@ export default function Profile() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      setShowUpdateMessage(true);
       dispatch(updateUserStart());
       const res = await fetch(`/api/user/update/${currentUser._id}`, {
         method: "POST",
@@ -163,6 +165,7 @@ export default function Profile() {
         body: JSON.stringify(formData),
       });
       const data = await res.json();
+
       if (data.success === false) {
         dispatch(updateUserFailure(data.message));
         return;
@@ -170,16 +173,19 @@ export default function Profile() {
 
       dispatch(updateUserSuccess(data));
       setUpdateSuccess(true);
-    } catch (error) {
+    } catch (error) { 
       dispatch(updateUserFailure(error.message));
     }
   };
 
   const handleShowListings = async () => {
     try {
+      setShowListingMessage(true);
       setShowListingsError(false);
       const res = await fetch(`/api/user/listings/${currentUser._id}`);
       const data = await res.json();
+      console.log(data.success);
+
       if (data.success === false) {
         setShowListingsError(true);
         return;
@@ -225,7 +231,7 @@ export default function Profile() {
         />
         <img
           onClick={() => fileRef.current.click()}
-          src={currentUser.avatar || formData.avatar}
+          src={formData.avatar || currentUser.avatar}
           alt="profile"
           className="rounded-full h-24 w-24 object-cover cursor-pointer self-center mt-2"
         />
@@ -250,19 +256,25 @@ export default function Profile() {
           className="border p-3 rounded-lg"
           onChange={handleChange}
         />
-        <input
-          type="email"
-          placeholder="email"
+        <p
           id="email"
-          defaultValue={currentUser.email}
-          className="border p-3 rounded-lg"
+          className="border p-3 rounded-lg bg-slate-100 text-gray-700"
+        >
+          {currentUser.email}
+        </p>
+
+        <input
+          type="password"
+          placeholder="currentPassword"
           onChange={handleChange}
+          id="currentPassword"
+          className="border p-3 rounded-lg"
         />
         <input
           type="password"
-          placeholder="password"
+          placeholder="newPassword"
           onChange={handleChange}
-          id="password"
+          id="newPassword"
           className="border p-3 rounded-lg"
         />
         <button
@@ -287,10 +299,14 @@ export default function Profile() {
         </button>
       </div>
 
-      <p className="text-red-700 mt-5">{error ? error : ""}</p>
-      <p className="text-green-700 mt-5">
-        {updateSuccess ? "User is updated successfully!" : ""}
-      </p>
+      {showUpdateMessage && (
+        <p className="text-red-700 mt-5">{error && error}</p>
+      )}
+      {showUpdateMessage && (
+        <p className="text-green-700 mt-5">
+          {updateSuccess && "User is updated successfully!"}
+        </p>
+      )}
 
       <div className="flex gap-2">
         <Link
@@ -300,10 +316,7 @@ export default function Profile() {
           Create Listing
         </Link>
         <button
-          onClick={() => {
-            handleShowListings();
-            setShowMessage(true);
-          }}
+          onClick={handleShowListings}
           className="w-1/2 bg-teal-600 text-white px-1 py-2 rounded-md hover:opacity-90"
         >
           Check My Listings
@@ -344,7 +357,9 @@ export default function Profile() {
                   </button>
                 </Link>
                 <button
-                  onClick={() => handleOpenDeleteListingConfirm(listing._id)}
+                  onClick={() =>
+                    handleOpenDeleteListingConfirm(listing._id, listing.name)
+                  }
                   className="bg-red-600 text-white px-4 py-2 rounded-full hover:opacity-90"
                 >
                   Delete
@@ -356,13 +371,19 @@ export default function Profile() {
       )}
       {showConfirmDelete && (
         <ConfirmDelete
+          message={
+            deleteListing
+              ? `Are you sure you want to delete ${listingName}`
+              : `Delete the account for ${currentUser.username}? All user data will be permanently removed.
+`
+          }
           onConfirm={
             deleteListing ? handleConfirmDeleteListing : handleConfirmDeleteUser
           }
           onCancel={handleCancelDelete}
         />
       )}
-      {showMessage && showListingsSuccess && !myListings && (
+      {showListingMessage && showListingsSuccess && !myListings && (
         <p className="text-red-700 p-4">Oops! No listings found</p>
       )}
     </div>
