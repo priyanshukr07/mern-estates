@@ -1,44 +1,74 @@
-import { GoogleAuthProvider, getAuth, signInWithPopup } from 'firebase/auth';
-import { app } from '../firebase';
+import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
-import { signInFailure, signInSuccess } from '../redux/user/userSlice';
+import {
+  signInFailure,
+  signInStart,
+  signInSuccess,
+} from '../redux/user/userSlice';
 import { useNavigate } from 'react-router-dom';
 
 export default function OAuth() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const handleGoogleClick = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      const auth = getAuth(app);
+  const googleButtonRef = useRef(null);
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-      const result = await signInWithPopup(auth, provider);
+  useEffect(() => {
+    if (!clientId || !window.google || !googleButtonRef.current) return;
 
-      const res = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: result.user.displayName,
-          email: result.user.email,
-          photo: result.user.photoURL,
-        }),
-      });
-      const data = await res.json();
-      dispatch(signInSuccess(data));
-      navigate('/');
-    } catch (error) {
-      dispatch(signInFailure(error.message))
-    }
-  };
+    const handleGoogleResponse = async (response) => {
+      try {
+        dispatch(signInStart());
+
+        const res = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            credential: response.credential,
+          }),
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.success === false) {
+          dispatch(signInFailure(data.message || 'Google sign-in failed.'));
+          return;
+        }
+
+        dispatch(signInSuccess(data));
+        navigate('/');
+      } catch (error) {
+        dispatch(signInFailure(error.message));
+      }
+    };
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleGoogleResponse,
+    });
+
+    googleButtonRef.current.innerHTML = '';
+
+    window.google.accounts.id.renderButton(googleButtonRef.current, {
+      theme: 'outline',
+      size: 'large',
+      text: 'continue_with',
+      width: 320,
+    });
+  }, [clientId, dispatch, navigate]);
+
+  if (!clientId) {
+    return (
+      <p className='text-sm text-red-600'>
+        Google sign-in is unavailable until `VITE_GOOGLE_CLIENT_ID` is set.
+      </p>
+    );
+  }
+
   return (
-    <button
-      onClick={handleGoogleClick}
-      type='button'
-      className='bg-red-700 text-white p-3 rounded-lg uppercase hover:opacity-95'
-    >
-      Continue with google
-    </button>
+    <div className='flex justify-center'>
+      <div ref={googleButtonRef} />
+    </div>
   );
 }
